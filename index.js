@@ -26,13 +26,21 @@ function inBounds(lat, lng, nwLat, nwLng, seLat, seLng) {
 }
 
 function isViolent(datapoint) {
-    return (datapoint.incident_category.indexOf("Assault") > -1);
+    return (datapoint.incident_category.indexOf("Assault") > -1) ||
+        (datapoint.incident_category.indexOf("Weapons") > -1) ||
+        (datapoint.incident_category.indexOf("Sex") > -1) ||
+        (datapoint.incident_description.indexOf("Death") > -1);
 }
 
 function isRobbery(datapoint) {
     return (datapoint.incident_category.indexOf("Robbery") > -1) ||
         (datapoint.incident_category.indexOf("Theft") > -1) ||
-        (datapoint.incident_category.indexOf("Burglary") >= -1);
+        (datapoint.incident_category.indexOf("Burglary") >= -1) ||
+        (datapoint.incident_category.indexOf("Stolen") > -1);
+}
+
+function isNonCrim(datapoint) {
+    return (datapoint.incident_category.indexOf("Non-Criminal") > -1);
 }
 
 async function render() {
@@ -45,15 +53,22 @@ async function render() {
     var seLng = ne.lng();
     await fetchIt(0);
     const noEmpties = dataArr.filter(n => n);
+    //const names = noEmpties.map(n => n.incident_category)
+    //const names =noEmpties.map(n => n.incident_description)
+    //console.log([...new Set(names)]);
     var filteredData = noEmpties.filter(data => inBounds(data.latitude, data.longitude, nwLat, nwLng, seLat, seLng));
+    filteredData.sort((a, b) => new Date(b.incident_datetime) - new Date(a.incident_datetime));
+    console.error("************** Incidents in this area ***************")
     var heatmapData = filteredData.map(datapoint => {
-        console.log(datapoint.report_type_code, datapoint.incident_category, datapoint.incident_description);
+        console.log(datapoint.incident_datetime, datapoint.incident_category, datapoint.incident_subcategory, datapoint.incident_description, datapoint.resolution);
         if (datapoint.latitude && datapoint.longitude) {
             var point = new google.maps.LatLng(datapoint.latitude, datapoint.longitude);
             if (isViolent(datapoint)) {
-                return {location: point, weight: 3}
+                return {location: point, weight: 8}
             } if (isRobbery(datapoint)) {
                 return {location: point, weight: 2}
+            } if (isNonCrim(datapoint)) {
+                return {location: point, weight: 0.5}
             }
             else {
                 return point;
@@ -62,10 +77,13 @@ async function render() {
             return;
         }
     });
+    console.error(`****  ${heatmapData.length} reported incidents in this area since 2018`)
     var cleanHeatmapData = heatmapData.filter(n => n);
     var heatmap = new google.maps.visualization.HeatmapLayer({
         data: cleanHeatmapData
     });
+    heatmap.set("radius", heatmap.get("radius") ? null : 20);
+
     heatmap.setMap(map);
 }
 
