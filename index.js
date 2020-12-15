@@ -25,6 +25,16 @@ function inBounds(lat, lng, nwLat, nwLng, seLat, seLng) {
     return  ((lat <= nwLat && lat >= seLat) && (lng >= nwLng && lng <= seLng));
 }
 
+function isViolent(datapoint) {
+    return (datapoint.incident_category.indexOf("Assault") > -1);
+}
+
+function isRobbery(datapoint) {
+    return (datapoint.incident_category.indexOf("Robbery") > -1) ||
+        (datapoint.incident_category.indexOf("Theft") > -1) ||
+        (datapoint.incident_category.indexOf("Burglary") >= -1);
+}
+
 async function render() {
     var bounds = map.getBounds();
     var ne = bounds.getNorthEast(); // LatLng of the north-east corner
@@ -37,9 +47,19 @@ async function render() {
     const noEmpties = dataArr.filter(n => n);
     var filteredData = noEmpties.filter(data => inBounds(data.latitude, data.longitude, nwLat, nwLng, seLat, seLng));
     var heatmapData = filteredData.map(datapoint => {
+        console.log(datapoint.report_type_code, datapoint.incident_category, datapoint.incident_description);
         if (datapoint.latitude && datapoint.longitude) {
             var point = new google.maps.LatLng(datapoint.latitude, datapoint.longitude);
-            return point;
+            if (isViolent(datapoint)) {
+                return {location: point, weight: 3}
+            } if (isRobbery(datapoint)) {
+                return {location: point, weight: 2}
+            }
+            else {
+                return point;
+            }
+        } else {
+            return;
         }
     });
     var cleanHeatmapData = heatmapData.filter(n => n);
